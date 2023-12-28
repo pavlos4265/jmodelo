@@ -74,7 +74,7 @@ public class MyHttpHandler implements HttpHandler{
 		String uri = exchange.getRequestURI().toString().contains("?") ? exchange.getRequestURI().toString().split("\\?")[0] :
 			exchange.getRequestURI().toString();
 
-		sendContent(exchange, uri.contains(".") ? readFile(exchange) : invokeAction(exchange));
+		sendContent(exchange, uri.contains(".") ? readFile(exchange) : invokeAction(exchange, null));
 	}
 
 	private ActionResult readFile(HttpExchange exchange) throws IOException {
@@ -90,7 +90,7 @@ public class MyHttpHandler implements HttpHandler{
 		return f.exists() ? new ActionResult(Files.readAllBytes(f.toPath()), mimeType, 200) : notFound404();
 	}
 
-	private ActionResult invokeAction(HttpExchange exchange) 
+	private ActionResult invokeAction(HttpExchange exchange, PathInfo pathInfo) 
 			throws IOException {
 		Cookies cookies = null;
 		Session session = null;
@@ -98,8 +98,7 @@ public class MyHttpHandler implements HttpHandler{
 		ActionResult result = null;
 
 		try (Connection dbConnection = dataSource != null ? dataSource.getConnection() : null){
-			PathInfo pathInfo = getPathInfo(exchange);
-
+			pathInfo = pathInfo == null ? getPathInfo(exchange) : pathInfo;
 			Controller controller = (Controller)pathInfo.controllerClass().getConstructors()[0].newInstance();
 			controller.init(scriptEngine, exchange, cookies = new Cookies(exchange), 
 					session = new Session(cookies), pathInfo.areaName(), dbConnection);
@@ -115,9 +114,9 @@ public class MyHttpHandler implements HttpHandler{
 			result = method.parameters() == null ? (ActionResult)method.method().invoke(controller) :
 				(ActionResult)method.method().invoke(controller, method.parameters());
 		}catch (InvocationTargetException e) {
-			result = handleError(e.getCause());
+			result = handleError(e.getCause(), exchange);
 		}catch (Exception e) {
-			result = handleError(e);
+			result = handleError(e, exchange);
 		}
 
 		if (session != null) session.storeSession();
@@ -134,6 +133,8 @@ public class MyHttpHandler implements HttpHandler{
 	private Optional<Class<?>> loadController(String areaName, String controllerName) {
 		Class<?> controllerClass = null;
 		try {
+			controllerName = controllerName.substring(0, 1).toUpperCase() + (controllerName.length() > 1 ?
+					controllerName.substring(1) : "");
 			controllerClass = Class.forName("%s%s.%sController"
 					.formatted(controllersPackage, areaName != null ? ("." + areaName.toLowerCase()) : "", controllerName));
 		} catch (ClassNotFoundException e) {}
@@ -154,7 +155,7 @@ public class MyHttpHandler implements HttpHandler{
 		if (method.getAnnotation(RawInput.class) == null) {
 			params.keySet().forEach(x -> params.put(x, escapeInput(params.get(x))));
 			urlArgs = urlArgs.stream().map(x -> escapeInput(x)).collect(Collectors.toList());
-			
+
 			if (postData != null)
 				postData.fields().keySet()
 				.forEach(x -> postData.fields().put(x, escapeInput(postData.fields().get(x))));		
@@ -354,7 +355,7 @@ public class MyHttpHandler implements HttpHandler{
 			exchange.sendResponseHeaders(result.responseCode(), result.contentBuffer().length);
 			output = exchange.getResponseBody();
 		}
-			
+
 		output.write(result.contentBuffer());
 		output.flush();
 		output.close();
@@ -362,11 +363,15 @@ public class MyHttpHandler implements HttpHandler{
 
 	private ActionResult notFound404() throws IOException {
 		String content = "<h1>404 - Not Found</h1>";
-
 		return new ActionResult(content.getBytes(), "text/html", 404);
 	}
 
-	private ActionResult handleError(Throwable e) throws IOException {
+	private ActionResult otherError() throws IOException {
+		String content = "<h1>400 - Bad Request</h1>";
+		return new ActionResult(content.getBytes(), "text/html", 400);
+	}
+
+	private ActionResult handleError(Throwable e, HttpExchange exchange) throws IOException {
 		if (MVC.DEBUG) {
 			StringBuilder sb = new StringBuilder("%s<br>".formatted(e.toString()));
 			for(var st: e.getStackTrace())
@@ -378,7 +383,12 @@ public class MyHttpHandler implements HttpHandler{
 			return new ActionResult(errorContent.getBytes(), "text/html", 200);
 		}
 
-		return notFound404();
+		boolean is404 = e instanceof ClassNotFoundException || e instanceof NoSuchMethodException;
+		Class<?> errorClass = loadController(null, "Error").orElse(null);
+		if (errorClass != null) 
+			return invokeAction(exchange, new PathInfo(null, is404 ? "notFound" : "otherError", new ArrayList<String>(), errorClass));
+		
+		return is404 ? notFound404() : otherError();
 	}
 
 	private PathInfo getPathInfo(HttpExchange exchange) throws ClassNotFoundException {
@@ -405,7 +415,7 @@ public class MyHttpHandler implements HttpHandler{
 
 		return new PathInfo(areaName, actionName, urlArgs, controllerClass);
 	}
-	
+
 	private String escapeInput(String input) {
 		input = input.replace("<", "&#x3C;")
 				.replace(">", "&#x3E;")

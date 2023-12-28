@@ -19,6 +19,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.sql.Connection;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
@@ -33,55 +35,56 @@ public abstract class Controller {
 	private Cookies cookies;
 	private Session session;
 	private Connection databaseConnection;
-	
+	private Map<String, Object> viewData;
+
 	public ActionResult html(String content) {
 		return new ActionResult(content.getBytes(), "text/html;charset=utf-8", 200);
 	}
-	
+
 	public ActionResult empty() {
 		return new ActionResult("".getBytes(), "text/plain;charset=utf-8", 200);
 	}
-	
+
 	public ActionResult file(File f, String mimeType) throws IOException {
 		return new ActionResult(Files.readAllBytes(f.toPath()), mimeType, 200);
 	}
-	
+
 	public ActionResult partialView(String viewFile) throws IOException, ScriptException {
 		return partialView(viewFile, null);
 	}
-	
+
 	public ActionResult partialView(String viewFile, Object model) throws IOException, ScriptException {
 		ViewInterpreter viewInterpreter = new ViewInterpreter(scriptEngine, area, 
-				this.getClass().getSimpleName().replace("Controller", ""));
-		
+				this.getClass().getSimpleName().replace("Controller", ""), viewData);
+
 		return new ActionResult(viewInterpreter.parsePartialView(viewFile, model, true).getBytes(), "text/html;charset=utf-8", 200);
 	}
-	
+
 	public ActionResult view(String viewFile) throws IOException, ScriptException {
 		return view(viewFile, null);
 	}
-	
+
 	public ActionResult view(String viewFile, Object model) throws IOException, ScriptException {
 		return view(viewFile, "layout.html", model);
 	}
-	
+
 	public ActionResult view(String viewFile, String layoutFile, Object model) throws IOException, ScriptException {
 		ViewInterpreter viewInterpreter = new ViewInterpreter(scriptEngine, area, 
-				this.getClass().getSimpleName().replace("Controller", ""));
-		
+				this.getClass().getSimpleName().replace("Controller", ""), viewData);
+
 		return new ActionResult(viewInterpreter.parseView(viewFile, layoutFile, model).getBytes(), "text/html;charset=utf-8", 200);
 	}
-	
+
 	public ActionResult json(Object o) {
 		return new ActionResult( new Gson().toJson(o).getBytes(), "application/json", 200);
 	}
 
 	public ActionResult redirect(String url) {
 		exchange.getResponseHeaders().add("Location", url);
-		
+
 		return new ActionResult("".getBytes(), "text/html", 303);
 	}
-	
+
 	public void init(ScriptEngine scriptEngine, HttpExchange exchange, Cookies cookies, Session session, String area,
 			Connection databaseConnection) {
 		this.scriptEngine = scriptEngine;
@@ -90,12 +93,14 @@ public abstract class Controller {
 		this.session = session;
 		this.area = area;
 		this.databaseConnection = databaseConnection;
+
+		this.viewData = new HashMap<>();
 	}
-	
+
 	public HttpExchange getExchange() {
 		return exchange;
 	}
-	
+
 	public Cookies getCookies() {
 		return cookies;
 	}
@@ -106,5 +111,9 @@ public abstract class Controller {
 
 	public Connection getDatabaseConnection() {
 		return databaseConnection;
+	}
+
+	public Map<String, Object> getViewData() {
+		return viewData;
 	}
 }
