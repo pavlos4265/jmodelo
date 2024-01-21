@@ -36,7 +36,7 @@ public class Cookies {
 	}
 
 	public void addCookie(String name, String value, int seconds) {
-		String headerValue = "%s=%s".formatted(name, value) + (seconds > 0 ? "; Max-Age=%d".formatted(seconds) : "");
+		String headerValue = "%s=%s; Path=/".formatted(name, value) + (seconds > 0 ? "; Max-Age=%d".formatted(seconds) : "");
 
 		exchange.getResponseHeaders().add("Set-Cookie", headerValue);	
 
