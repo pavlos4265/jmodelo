@@ -55,7 +55,7 @@ public abstract class Controller {
 
 	public ActionResult partialView(String viewFile, Object model) throws IOException, ScriptException {
 		ViewInterpreter viewInterpreter = new ViewInterpreter(scriptEngine, area, 
-				this.getClass().getSimpleName().replace("Controller", ""), viewData);
+				this.getClass().getSimpleName().replace("Controller", ""), viewData, cookies, session);
 
 		return new ActionResult(viewInterpreter.parsePartialView(viewFile, model, true).getBytes(), "text/html;charset=utf-8", 200);
 	}
@@ -70,7 +70,7 @@ public abstract class Controller {
 
 	public ActionResult view(String viewFile, String layoutFile, Object model) throws IOException, ScriptException {
 		ViewInterpreter viewInterpreter = new ViewInterpreter(scriptEngine, area, 
-				this.getClass().getSimpleName().replace("Controller", ""), viewData);
+				this.getClass().getSimpleName().replace("Controller", ""), viewData, cookies, session);
 
 		return new ActionResult(viewInterpreter.parseView(viewFile, layoutFile, model).getBytes(), "text/html;charset=utf-8", 200);
 	}

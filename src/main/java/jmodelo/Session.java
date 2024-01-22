@@ -68,6 +68,10 @@ public class Session {
 			cookies.addCookie("sessionid", UUID.randomUUID().toString(), 0);
 	}
 
+	public void removeValue(String name) {
+		values.remove(name);
+	}
+	
 	private void loadSession() throws IOException {
 		String sessionId = cookies.getCookie("sessionid");
 

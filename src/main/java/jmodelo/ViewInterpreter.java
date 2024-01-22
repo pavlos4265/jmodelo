@@ -41,15 +41,20 @@ public class ViewInterpreter {
 	private String area;
 	private String controllerName;
 	private Map<String, Object> viewData;
+	private Session session;
+	private Cookies cookies;
 	private SimpleScriptContext context;
 
 	private static Map<String, CompiledScript> scriptCache;
 
-	public ViewInterpreter(ScriptEngine scriptEngine, String area, String controllerName, Map<String, Object> viewData) {
+	public ViewInterpreter(ScriptEngine scriptEngine, String area, String controllerName, Map<String, Object> viewData,
+			Cookies cookies, Session session) {
 		this.scriptEngine = scriptEngine;
 		this.area = area;
 		this.controllerName = controllerName;	
 		this.viewData = viewData;
+		this.cookies = cookies;
+		this.session = session;
 		this.pattern = Pattern.compile("<%([\\s\\S]*?)%>");
 
 		this.context = new SimpleScriptContext();
@@ -81,6 +86,8 @@ public class ViewInterpreter {
 		context.setAttribute("_viewInterpreter", this, ScriptContext.ENGINE_SCOPE);
 		context.setAttribute("_model", model, ScriptContext.ENGINE_SCOPE);
 		context.setAttribute("_viewData", viewData, ScriptContext.ENGINE_SCOPE);
+		context.setAttribute("_cookies", cookies, ScriptContext.ENGINE_SCOPE);
+		context.setAttribute("_session", session, ScriptContext.ENGINE_SCOPE);
 		return (String)compiledScript.eval(this.context);
 	}
 
