@@ -105,7 +105,7 @@ public class ViewInterpreter {
 
 		for (String htmlPart: htmlParts) {
 			contents = contents.replaceFirst(Pattern.quote(htmlPart), "_contents += '%s';"
-					.formatted(htmlPart.replace("\r\n", "\n").replace("\n", "\\\\n")));
+					.formatted(htmlPart.replace("\r\n", "\n").replace("\n", "\\\\n").replace("'", "\\\\'")));
 		}
 
 		for (String scriptPart: scriptParts) {
